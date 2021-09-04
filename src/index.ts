@@ -1,29 +1,29 @@
 import {
   Construct,
   Arn,
-  Stack
-} from '@aws-cdk/core';
+  Stack,
+} from '@aws-cdk/core'
 import {
   CloudFrontWebDistribution,
   CloudFrontWebDistributionProps,
   OriginAccessIdentity,
-  PriceClass
-} from '@aws-cdk/aws-cloudfront';
+  PriceClass,
+} from '@aws-cdk/aws-cloudfront'
 import {
-  Bucket
-} from '@aws-cdk/aws-s3';
+  Bucket,
+} from '@aws-cdk/aws-s3'
 import {
-  CfnService
-} from '@aws-cdk/aws-apprunner';
+  CfnService,
+} from '@aws-cdk/aws-apprunner'
 import {
   IGrantable,
   PolicyStatement,
-  Role
-} from '@aws-cdk/aws-iam';
+  Role,
+} from '@aws-cdk/aws-iam'
 
 // CloudFront
 
-type WebDistributionProps = Omit<CloudFrontWebDistributionProps, 'defaultRootObject'>;
+type WebDistributionProps = Omit<CloudFrontWebDistributionProps, 'defaultRootObject'>
 
 export class WebDistribution extends CloudFrontWebDistribution {
 
@@ -31,8 +31,8 @@ export class WebDistribution extends CloudFrontWebDistribution {
     const cloudFrontWebDistributionProps = {
       ...webDistributionProps,
       defaultRootObject: 'index.html',
-    };
-    super(scope, id, cloudFrontWebDistributionProps);
+    }
+    super(scope, id, cloudFrontWebDistributionProps)
   }
 
   grantInvalidate(grantee: IGrantable) {
@@ -41,7 +41,7 @@ export class WebDistribution extends CloudFrontWebDistribution {
       resource: 'distribution',
       region: '',
       resourceName: this.distributionId,
-    }, this.stack);
+    }, this.stack)
     const policy = new PolicyStatement({
       actions: [
         'cloudfront:CreateInvalidation',
@@ -49,8 +49,8 @@ export class WebDistribution extends CloudFrontWebDistribution {
       resources: [
         arn,
       ],
-    });
-    grantee.grantPrincipal.addToPrincipalPolicy(policy);
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
 }
@@ -60,13 +60,13 @@ export class WebDistribution extends CloudFrontWebDistribution {
 export class IamRole extends Role {
 
   static grantGet(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
-    const fullName = (isService ? 'service-role/' : '') + name;
+    const fullName = (isService ? 'service-role/' : '') + name
     const arn = Arn.format({
       service: 'iam',
       resource: 'role',
       region: '',
       resourceName: fullName,
-    }, Stack.of(scope));
+    }, Stack.of(scope))
     const policy = new PolicyStatement({
       actions: [
         'iam:GetRole',
@@ -74,8 +74,8 @@ export class IamRole extends Role {
       resources: [
         arn,
       ],
-    });
-    grantee.grantPrincipal.addToPrincipalPolicy(policy);
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
   static grantCreate(grantee: IGrantable, scope: Construct) {
@@ -84,7 +84,7 @@ export class IamRole extends Role {
       resource: 'role',
       region: '',
       resourceName: '*',
-    }, Stack.of(scope));
+    }, Stack.of(scope))
     const policy = new PolicyStatement({
       actions: [
         'iam:CreateRole',
@@ -93,18 +93,18 @@ export class IamRole extends Role {
       resources: [
         arn,
       ],
-    });
-    grantee.grantPrincipal.addToPrincipalPolicy(policy);
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
   static grantPass(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
-    const fullName = (isService ? 'service-role/' : '') + name;
+    const fullName = (isService ? 'service-role/' : '') + name
     const arn = Arn.format({
       service: 'iam',
       resource: 'role',
       region: '',
       resourceName: fullName,
-    }, Stack.of(scope));
+    }, Stack.of(scope))
     const policy = new PolicyStatement({
       actions: [
         'iam:PassRole',
@@ -112,8 +112,8 @@ export class IamRole extends Role {
       resources: [
         arn,
       ],
-    });
-    grantee.grantPrincipal.addToPrincipalPolicy(policy);
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
 }
@@ -127,17 +127,17 @@ export class AppRunnerService extends CfnService {
       service: 'apprunner',
       resource: 'service',
       resourceName: '*',
-    }, Stack.of(scope));
+    }, Stack.of(scope))
     const connectionArn = Arn.format({
       service: 'apprunner',
       resource: 'connection',
       resourceName: '*',
-    }, Stack.of(scope));
+    }, Stack.of(scope))
     const autoscalingArn = Arn.format({
       service: 'apprunner',
       resource: 'autoscalingconfiguration',
       resourceName: '*',
-    }, Stack.of(scope));
+    }, Stack.of(scope))
     const policy = new PolicyStatement({
       actions: [
         'apprunner:CreateService',
@@ -147,8 +147,8 @@ export class AppRunnerService extends CfnService {
         connectionArn,
         autoscalingArn,
       ],
-    });
-    grantee.grantPrincipal.addToPrincipalPolicy(policy);
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
 }
@@ -157,28 +157,28 @@ export class AppRunnerService extends CfnService {
 
 export class Cdn extends Construct {
 
-  public readonly source: Bucket;
-  public readonly distribution: WebDistribution;
+  public readonly source: Bucket
+  public readonly distribution: WebDistribution
 
   constructor(scope: Construct, id: string) {
-    super(scope, id);
-    this.source = new Bucket(this, 'Source');
-    const originAccessIdentity = new OriginAccessIdentity(this, 'OriginAccessIdentity');
+    super(scope, id)
+    this.source = new Bucket(this, 'Source')
+    const originAccessIdentity = new OriginAccessIdentity(this, 'OriginAccessIdentity')
     const s3OriginSource = {
       s3BucketSource: this.source,
       originAccessIdentity,
-    };
+    }
     const behaviors = [{
       isDefaultBehavior: true,
-    }];
+    }]
     const originConfigs = [{
       s3OriginSource,
       behaviors,
-    }];
+    }]
     this.distribution = new WebDistribution(this, 'Distribution', {
       originConfigs,
       priceClass: PriceClass.PRICE_CLASS_200,
-    });
+    })
   }
 
 }
