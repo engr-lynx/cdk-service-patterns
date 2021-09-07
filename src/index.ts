@@ -172,7 +172,7 @@ export class AppRunnerService extends CfnService {
     const arn = Arn.format({
       service: 'apprunner',
       resource: 'service',
-      resourceName: name,
+      resourceName: name + '*',
     }, Stack.of(scope))
     const policy = new PolicyStatement({
       actions: [
