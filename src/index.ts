@@ -151,6 +151,40 @@ export class AppRunnerService extends CfnService {
     grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
+  static grantList(grantee: IGrantable, scope: Construct) {
+    const arn = Arn.format({
+      service: 'apprunner',
+      resource: 'service',
+      resourceName: '*',
+    }, Stack.of(scope))
+    const policy = new PolicyStatement({
+      actions: [
+        'apprunner:ListServices',
+      ],
+      resources: [
+        arn,
+      ],
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
+  }
+
+  static grantDescribe(grantee: IGrantable, scope: Construct, name: string) {
+    const arn = Arn.format({
+      service: 'apprunner',
+      resource: 'service',
+      resourceName: name,
+    }, Stack.of(scope))
+    const policy = new PolicyStatement({
+      actions: [
+        'apprunner:DescribeService',
+      ],
+      resources: [
+        arn,
+      ],
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
+  }
+
 }
 
 // Constructs
