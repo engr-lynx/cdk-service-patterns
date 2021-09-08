@@ -135,6 +135,25 @@ export class IamRole extends Role {
     grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
+  static grantListAttachedPolicies(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
+    const fullName = (isService ? 'service-role/' : '') + name
+    const arn = Arn.format({
+      service: 'iam',
+      resource: 'role',
+      region: '',
+      resourceName: fullName,
+    }, Stack.of(scope))
+    const policy = new PolicyStatement({
+      actions: [
+        'iam:ListAttachedRolePolicies',
+      ],
+      resources: [
+        arn,
+      ],
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
+  }
+
   static grantPass(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
     const fullName = (isService ? 'service-role/' : '') + name
     const arn = Arn.format({
