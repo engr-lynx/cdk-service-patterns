@@ -163,6 +163,7 @@ export class IamPolicy extends Policy {
       service: 'iam',
       resource: 'policy',
       region: '',
+      account: '*',
       resourceName: '*',
     }, Stack.of(scope))
     const policy = new PolicyStatement({
