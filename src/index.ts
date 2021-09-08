@@ -19,6 +19,7 @@ import {
   IGrantable,
   PolicyStatement,
   Role,
+  Policy,
 } from '@aws-cdk/aws-iam'
 
 // CloudFront
@@ -59,6 +60,24 @@ export class WebDistribution extends CloudFrontWebDistribution {
 
 export class IamRole extends Role {
 
+  static grantList(grantee: IGrantable, scope: Construct) {
+    const arn = Arn.format({
+      service: 'iam',
+      resource: 'role',
+      region: '',
+      resourceName: '*',
+    }, Stack.of(scope))
+    const policy = new PolicyStatement({
+      actions: [
+        'iam:ListRoles',
+      ],
+      resources: [
+        arn,
+      ],
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
+  }
+
   static grantGet(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
     const fullName = (isService ? 'service-role/' : '') + name
     const arn = Arn.format({
@@ -97,6 +116,25 @@ export class IamRole extends Role {
     grantee.grantPrincipal.addToPrincipalPolicy(policy)
   }
 
+  static grantAttachPolicy(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
+    const fullName = (isService ? 'service-role/' : '') + name
+    const arn = Arn.format({
+      service: 'iam',
+      resource: 'role',
+      region: '',
+      resourceName: fullName,
+    }, Stack.of(scope))
+    const policy = new PolicyStatement({
+      actions: [
+        'iam:AttachRolePolicy',
+      ],
+      resources: [
+        arn,
+      ],
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
+  }
+
   static grantPass(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
     const fullName = (isService ? 'service-role/' : '') + name
     const arn = Arn.format({
@@ -108,6 +146,28 @@ export class IamRole extends Role {
     const policy = new PolicyStatement({
       actions: [
         'iam:PassRole',
+      ],
+      resources: [
+        arn,
+      ],
+    })
+    grantee.grantPrincipal.addToPrincipalPolicy(policy)
+  }
+
+}
+
+export class IamPolicy extends Policy {
+
+  static grantList(grantee: IGrantable, scope: Construct) {
+    const arn = Arn.format({
+      service: 'iam',
+      resource: 'policy',
+      region: '',
+      resourceName: '*',
+    }, Stack.of(scope))
+    const policy = new PolicyStatement({
+      actions: [
+        'iam:ListPolicies',
       ],
       resources: [
         arn,
