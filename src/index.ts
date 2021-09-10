@@ -1,7 +1,6 @@
 import {
   Construct,
   Arn,
-  Stack,
 } from '@aws-cdk/core'
 import {
   CloudFrontWebDistribution,
@@ -16,10 +15,11 @@ import {
   CfnService,
 } from '@aws-cdk/aws-apprunner'
 import {
+  Grant,
   IGrantable,
-  PolicyStatement,
   Role,
-  Policy,
+  ServicePrincipal,
+  ManagedPolicy,
 } from '@aws-cdk/aws-iam'
 
 // CloudFront
@@ -36,238 +36,34 @@ export class WebDistribution extends CloudFrontWebDistribution {
     super(scope, id, cloudFrontWebDistributionProps)
   }
 
-  grantInvalidate(grantee: IGrantable) {
+  grant(grantee: IGrantable, ...actions: string[]) {
     const arn = Arn.format({
       service: 'cloudfront',
       resource: 'distribution',
       region: '',
       resourceName: this.distributionId,
     }, this.stack)
-    const policy = new PolicyStatement({
-      actions: [
-        'cloudfront:CreateInvalidation',
+    return Grant.addToPrincipal({
+      grantee,
+      actions,
+      resourceArns: [
+        arn
       ],
-      resources: [
-        arn,
-      ],
+      scope: this,
     })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
+  }
+
+  grantInvalidate(grantee: IGrantable) {
+    return this.grant(grantee, 'cloudfront:CreateInvalidation')
   }
 
 }
 
-// IAM
+/*
+ * Constructs
+ */
 
-export class IamRole extends Role {
-
-  static grantList(grantee: IGrantable, scope: Construct) {
-    const arn = Arn.format({
-      service: 'iam',
-      resource: 'role',
-      region: '',
-      resourceName: '*',
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'iam:ListRoles',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-  static grantGet(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
-    const fullName = (isService ? 'service-role/' : '') + name
-    const arn = Arn.format({
-      service: 'iam',
-      resource: 'role',
-      region: '',
-      resourceName: fullName,
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'iam:GetRole',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-  static grantCreate(grantee: IGrantable, scope: Construct) {
-    const arn = Arn.format({
-      service: 'iam',
-      resource: 'role',
-      region: '',
-      resourceName: '*',
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'iam:CreateRole',
-        'iam:CreateServiceLinkedRole',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-  static grantAttachPolicy(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
-    const fullName = (isService ? 'service-role/' : '') + name
-    const arn = Arn.format({
-      service: 'iam',
-      resource: 'role',
-      region: '',
-      resourceName: fullName,
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'iam:AttachRolePolicy',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-  static grantListAttachedPolicies(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
-    const fullName = (isService ? 'service-role/' : '') + name
-    const arn = Arn.format({
-      service: 'iam',
-      resource: 'role',
-      region: '',
-      resourceName: fullName,
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'iam:ListAttachedRolePolicies',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-  static grantPass(grantee: IGrantable, scope: Construct, name: string, isService?: boolean) {
-    const fullName = (isService ? 'service-role/' : '') + name
-    const arn = Arn.format({
-      service: 'iam',
-      resource: 'role',
-      region: '',
-      resourceName: fullName,
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'iam:PassRole',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-}
-
-export class IamPolicy extends Policy {
-
-  static grantList(grantee: IGrantable, scope: Construct) {
-    const arn = Arn.format({
-      service: 'iam',
-      resource: 'policy',
-      region: '',
-      account: '*',
-      resourceName: '*',
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'iam:ListPolicies',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-}
-
-// App Runner
-
-export class AppRunnerService extends CfnService {
-
-  static grantCreate(grantee: IGrantable, scope: Construct) {
-    const serviceArn = Arn.format({
-      service: 'apprunner',
-      resource: 'service',
-      resourceName: '*',
-    }, Stack.of(scope))
-    const connectionArn = Arn.format({
-      service: 'apprunner',
-      resource: 'connection',
-      resourceName: '*',
-    }, Stack.of(scope))
-    const autoscalingArn = Arn.format({
-      service: 'apprunner',
-      resource: 'autoscalingconfiguration',
-      resourceName: '*',
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'apprunner:CreateService',
-      ],
-      resources: [
-        serviceArn,
-        connectionArn,
-        autoscalingArn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-  static grantList(grantee: IGrantable, scope: Construct) {
-    const arn = Arn.format({
-      service: 'apprunner',
-      resource: 'service',
-      resourceName: '*',
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'apprunner:ListServices',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-  static grantDescribe(grantee: IGrantable, scope: Construct, name: string) {
-    const arn = Arn.format({
-      service: 'apprunner',
-      resource: 'service',
-      resourceName: name + '*',
-    }, Stack.of(scope))
-    const policy = new PolicyStatement({
-      actions: [
-        'apprunner:DescribeService',
-      ],
-      resources: [
-        arn,
-      ],
-    })
-    grantee.grantPrincipal.addToPrincipalPolicy(policy)
-  }
-
-}
-
-// Constructs
+// CDN: CloudFront - S3
 
 export class Cdn extends Construct {
 
@@ -292,6 +88,66 @@ export class Cdn extends Construct {
     this.distribution = new WebDistribution(this, 'Distribution', {
       originConfigs,
       priceClass: PriceClass.PRICE_CLASS_200,
+    })
+  }
+
+}
+
+// App Image Service: App Runner (Image)
+
+export enum RepositoryType {
+  ECR = 'ECR',
+  ECR_PUBLIC = 'ECR_PUBLIC',
+}
+
+export interface KeyValuePair {
+  name?: string,
+  value?: string,
+}
+
+export interface AppImageServiceProps {
+  repositoryType: RepositoryType,
+  imageId: string,
+  port?: string,
+  startCommand?: string,
+  environment?: KeyValuePair[],
+  willAutoDeploy?: boolean,
+}
+
+export class AppImageService extends Construct {
+
+  private service: CfnService;
+
+  constructor(scope: Construct, id: string, appImageServiceProps: AppImageServiceProps) {
+    super(scope, id)
+    const assumedBy = new ServicePrincipal('build.apprunner.amazonaws.com')
+    const managedPolicies = [
+      ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSAppRunnerServicePolicyForECRAccess'),
+    ]
+    const accessRole = new Role(this, 'AccessRole', {
+      assumedBy,
+      managedPolicies,
+    })
+    const authenticationConfiguration = {
+      accessRoleArn: accessRole.roleArn,
+    }
+    const imageConfiguration = {
+      port: appImageServiceProps.port,
+      startCommand: appImageServiceProps.startCommand,
+      runtimeEnvironmentVariables: appImageServiceProps.environment,
+    }
+    const imageRepository = {
+      imageIdentifier: appImageServiceProps.imageId,
+      imageRepositoryType: appImageServiceProps.repositoryType,
+      imageConfiguration,
+    }
+    const sourceConfiguration = {
+      imageRepository,
+      authenticationConfiguration,
+      autoDeploymentsEnabled: appImageServiceProps.willAutoDeploy,
+    }
+    this.service = new CfnService(this, 'Service', {
+      sourceConfiguration,
     })
   }
 
