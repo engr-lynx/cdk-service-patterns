@@ -116,7 +116,7 @@ export interface AppImageServiceProps {
 
 export class AppImageService extends Construct {
 
-  private service: CfnService;
+  public readonly service: CfnService;
 
   constructor(scope: Construct, id: string, appImageServiceProps: AppImageServiceProps) {
     super(scope, id)
