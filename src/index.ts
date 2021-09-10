@@ -13,6 +13,7 @@ import {
 } from '@aws-cdk/aws-s3'
 import {
   CfnService,
+  CfnServiceProps,
 } from '@aws-cdk/aws-apprunner'
 import {
   Grant,
@@ -55,6 +56,37 @@ export class WebDistribution extends CloudFrontWebDistribution {
 
   grantInvalidate(grantee: IGrantable) {
     return this.grant(grantee, 'cloudfront:CreateInvalidation')
+  }
+
+}
+
+// App Runner
+
+export class AppService extends CfnService {
+
+  constructor(scope: Construct, id: string, serviceProps: CfnServiceProps) {
+    super(scope, id, serviceProps)
+  }
+
+  grant(grantee: IGrantable, ...actions: string[]) {
+    const resourceName = this.serviceName + '*'
+    const arn = Arn.format({
+      service: 'apprunner',
+      resource: 'service',
+      resourceName,
+    }, this.stack)
+    return Grant.addToPrincipal({
+      grantee,
+      actions,
+      resourceArns: [
+        arn
+      ],
+      scope: this,
+    })
+  }
+
+  grantUpdate(grantee: IGrantable) {
+    return this.grant(grantee, 'apprunner:UpdateService', 'apprunner:DescribeService')
   }
 
 }
@@ -116,7 +148,7 @@ export interface AppImageServiceProps {
 
 export class AppImageService extends Construct {
 
-  public readonly service: CfnService;
+  public readonly service: AppService;
 
   constructor(scope: Construct, id: string, appImageServiceProps: AppImageServiceProps) {
     super(scope, id)
@@ -146,7 +178,7 @@ export class AppImageService extends Construct {
       authenticationConfiguration,
       autoDeploymentsEnabled: appImageServiceProps.willAutoDeploy,
     }
-    this.service = new CfnService(this, 'Service', {
+    this.service = new AppService(this, 'Service', {
       sourceConfiguration,
     })
   }
