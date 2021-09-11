@@ -137,7 +137,7 @@ export interface KeyValuePair {
   value?: string,
 }
 
-export interface AppImageServiceProps {
+export interface ImageServiceRunnerProps {
   repositoryType: RepositoryType,
   imageId: string,
   port?: string,
@@ -146,11 +146,11 @@ export interface AppImageServiceProps {
   willAutoDeploy?: boolean,
 }
 
-export class AppImageService extends Construct {
+export class ImageServiceRunner extends Construct {
 
   public readonly service: AppService;
 
-  constructor(scope: Construct, id: string, appImageServiceProps: AppImageServiceProps) {
+  constructor(scope: Construct, id: string, imageServiceRunnerProps: ImageServiceRunnerProps) {
     super(scope, id)
     const assumedBy = new ServicePrincipal('build.apprunner.amazonaws.com')
     const managedPolicies = [
@@ -164,19 +164,19 @@ export class AppImageService extends Construct {
       accessRoleArn: accessRole.roleArn,
     }
     const imageConfiguration = {
-      port: appImageServiceProps.port,
-      startCommand: appImageServiceProps.startCommand,
-      runtimeEnvironmentVariables: appImageServiceProps.environment,
+      port: imageServiceRunnerProps.port,
+      startCommand: imageServiceRunnerProps.startCommand,
+      runtimeEnvironmentVariables: imageServiceRunnerProps.environment,
     }
     const imageRepository = {
-      imageIdentifier: appImageServiceProps.imageId,
-      imageRepositoryType: appImageServiceProps.repositoryType,
+      imageIdentifier: imageServiceRunnerProps.imageId,
+      imageRepositoryType: imageServiceRunnerProps.repositoryType,
       imageConfiguration,
     }
     const sourceConfiguration = {
       imageRepository,
       authenticationConfiguration,
-      autoDeploymentsEnabled: appImageServiceProps.willAutoDeploy,
+      autoDeploymentsEnabled: imageServiceRunnerProps.willAutoDeploy,
     }
     this.service = new AppService(this, 'Service', {
       sourceConfiguration,
