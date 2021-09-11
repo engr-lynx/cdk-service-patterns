@@ -69,17 +69,11 @@ export class AppService extends CfnService {
   }
 
   grant(grantee: IGrantable, ...actions: string[]) {
-    const resourceName = this.serviceName + '*'
-    const arn = Arn.format({
-      service: 'apprunner',
-      resource: 'service',
-      resourceName,
-    }, this.stack)
     return Grant.addToPrincipal({
       grantee,
       actions,
       resourceArns: [
-        arn
+        this.attrServiceArn,
       ],
       scope: this,
     })
