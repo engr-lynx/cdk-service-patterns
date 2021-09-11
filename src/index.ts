@@ -85,6 +85,10 @@ export class AppService extends CfnService {
     })
   }
 
+  grantDescribe(grantee: IGrantable) {
+    return this.grant(grantee, 'apprunner:DescribeService')
+  }
+
   grantUpdate(grantee: IGrantable) {
     return this.grant(grantee, 'apprunner:UpdateService', 'apprunner:DescribeService')
   }
