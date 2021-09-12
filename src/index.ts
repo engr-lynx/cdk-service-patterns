@@ -44,12 +44,13 @@ export class WebDistribution extends CloudFrontWebDistribution {
       region: '',
       resourceName: this.distributionId,
     }, this.stack)
+    const resourceArns = [
+      arn
+    ]
     return Grant.addToPrincipal({
       grantee,
       actions,
-      resourceArns: [
-        arn
-      ],
+      resourceArns,
       scope: this,
     })
   }
@@ -69,12 +70,13 @@ export class AppService extends CfnService {
   }
 
   grant(grantee: IGrantable, ...actions: string[]) {
+    const resourceArns = [
+      this.attrServiceArn,
+    ]
     return Grant.addToPrincipal({
       grantee,
       actions,
-      resourceArns: [
-        this.attrServiceArn,
-      ],
+      resourceArns,
       scope: this,
     })
   }
