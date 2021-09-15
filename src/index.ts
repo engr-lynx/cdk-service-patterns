@@ -22,6 +22,7 @@ import {
   Role,
   ServicePrincipal,
   ManagedPolicy,
+  IPrincipal,
 } from '@aws-cdk/aws-iam'
 import {
   PythonFunction,
@@ -161,6 +162,7 @@ export interface ImageServiceRunnerProps extends BaseServiceRunnerProps {
   readonly environment?: KeyValuePair[],
 }
 
+// ToDo: This may implement IGrantable for the app inside the service.
 export class ImageServiceRunner extends BaseServiceRunner {
 
   constructor(scope: Construct, id: string, props: ImageServiceRunnerProps) {
@@ -249,9 +251,9 @@ export interface PythonResourceProps {
   readonly properties?: KeyValue,
 }
 
-export class PythonResource extends Construct {
+export class PythonResource extends Construct implements IGrantable {
 
-  public readonly handler: PythonFunction
+  readonly grantPrincipal: IPrincipal
 
   constructor(scope: Construct, id: string, props: PythonResourceProps) {
     super(scope, id)
@@ -261,7 +263,7 @@ export class PythonResource extends Construct {
       handler: props.handler,
       runtime: props.runtime,
     })
-    this.handler = onEventHandler
+    this.grantPrincipal = onEventHandler.grantPrincipal
     const provider = new Provider(this, 'Provider', {
       onEventHandler,
     })
