@@ -33,6 +33,8 @@ import {
   Provider,
 } from '@aws-cdk/custom-resources'
 
+// ToDo: Break these up so that there's a logical grouping or Constructs and Resources.
+
 // CloudFront
 
 type WebDistributionProps = Omit<CloudFrontWebDistributionProps, 'defaultRootObject'>
@@ -253,17 +255,17 @@ export class PythonResource extends Construct {
 
   constructor(scope: Construct, id: string, props: PythonResourceProps) {
     super(scope, id)
-    const onEventHandler = new PythonFunction(scope, 'Handler', {
+    const onEventHandler = new PythonFunction(this, 'Handler', {
       entry: props.entry,
       index: props.index,
       handler: props.handler,
       runtime: props.runtime,
     })
     this.handler = onEventHandler
-    const provider = new Provider(scope, 'Provider', {
+    const provider = new Provider(this, 'Provider', {
       onEventHandler,
     })
-    new CustomResource(scope, 'Resource', {
+    new CustomResource(this, 'Resource', {
       serviceToken: provider.serviceToken,
       properties: props.properties,
     })
