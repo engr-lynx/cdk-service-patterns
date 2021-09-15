@@ -1,6 +1,8 @@
 import {
+  Resource,
   Construct,
   Arn,
+  CustomResource,
 } from '@aws-cdk/core'
 import {
   CloudFrontWebDistribution,
@@ -13,7 +15,6 @@ import {
 } from '@aws-cdk/aws-s3'
 import {
   CfnService,
-  CfnServiceProps,
 } from '@aws-cdk/aws-apprunner'
 import {
   Grant,
@@ -22,6 +23,15 @@ import {
   ServicePrincipal,
   ManagedPolicy,
 } from '@aws-cdk/aws-iam'
+import {
+  PythonFunction,
+} from '@aws-cdk/aws-lambda-python'
+import {
+  Runtime,
+} from '@aws-cdk/aws-lambda'
+import {
+  Provider,
+} from '@aws-cdk/custom-resources'
 
 // CloudFront
 
@@ -29,9 +39,9 @@ type WebDistributionProps = Omit<CloudFrontWebDistributionProps, 'defaultRootObj
 
 export class WebDistribution extends CloudFrontWebDistribution {
 
-  constructor(scope: Construct, id: string, webDistributionProps: WebDistributionProps) {
+  constructor(scope: Construct, id: string, props: WebDistributionProps) {
     const cloudFrontWebDistributionProps = {
-      ...webDistributionProps,
+      ...props,
       defaultRootObject: 'index.html',
     }
     super(scope, id, cloudFrontWebDistributionProps)
@@ -63,15 +73,38 @@ export class WebDistribution extends CloudFrontWebDistribution {
 
 // App Runner
 
-export class AppService extends CfnService {
+const SERVICE_READ_ACTIONS = [
+  'apprunner:DescribeService',
+  'apprunner:DescribeCustomDomains',
+  'apprunner:ListOperations',
+]
 
-  constructor(scope: Construct, id: string, serviceProps: CfnServiceProps) {
-    super(scope, id, serviceProps)
-  }
+const SERVICE_WRITE_ACTIONS = [
+  'apprunner:UpdateService',
+  'apprunner:AssociateCustomDomain',
+  'apprunner:DisassociateCustomDomain',
+]
+
+const SERVICE_OPERATE_ACTIONS = [
+  'apprunner:PauseService',
+  'apprunner:ResumeService',
+  'apprunner:StartDeployment',
+]
+
+interface BaseServiceRunnerProps {
+  readonly willAutoDeploy?: boolean,
+}
+
+class BaseServiceRunner extends Resource {
+
+  public serviceArn: string
+  public serviceId: string
+  public serviceUrl: string
+  public status: string
 
   grant(grantee: IGrantable, ...actions: string[]) {
     const resourceArns = [
-      this.attrServiceArn,
+      this.serviceArn,
     ]
     return Grant.addToPrincipal({
       grantee,
@@ -81,12 +114,89 @@ export class AppService extends CfnService {
     })
   }
 
-  grantDescribe(grantee: IGrantable) {
-    return this.grant(grantee, 'apprunner:DescribeService')
+  grantRead(grantee: IGrantable) {
+    return this.grant(grantee,
+      ...SERVICE_READ_ACTIONS,
+    )
   }
 
-  grantUpdate(grantee: IGrantable) {
-    return this.grant(grantee, 'apprunner:UpdateService', 'apprunner:DescribeService')
+  grantWrite(grantee: IGrantable) {
+    return this.grant(grantee,
+      ...SERVICE_WRITE_ACTIONS,
+    )
+  }
+
+  grantReadWrite(grantee: IGrantable) {
+    return this.grant(grantee,
+      ...SERVICE_READ_ACTIONS,
+      ...SERVICE_WRITE_ACTIONS,
+    )
+  }
+
+  grantOperate(grantee: IGrantable) {
+    return this.grant(grantee,
+      ...SERVICE_OPERATE_ACTIONS,
+    )
+  }
+
+}
+
+export enum RepositoryType {
+  ECR = 'ECR',
+  ECR_PUBLIC = 'ECR_PUBLIC',
+}
+
+export interface KeyValuePair {
+  readonly name?: string,
+  readonly value?: string,
+}
+
+export interface ImageServiceRunnerProps extends BaseServiceRunnerProps {
+  readonly repositoryType: RepositoryType,
+  readonly imageId: string,
+  readonly port?: string,
+  readonly startCommand?: string,
+  readonly environment?: KeyValuePair[],
+}
+
+export class ImageServiceRunner extends BaseServiceRunner {
+
+  constructor(scope: Construct, id: string, props: ImageServiceRunnerProps) {
+    super(scope, id)
+    const assumedBy = new ServicePrincipal('build.apprunner.amazonaws.com')
+    const managedPolicies = [
+      ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSAppRunnerServicePolicyForECRAccess'),
+    ]
+    const accessRole = new Role(this, 'AccessRole', {
+      assumedBy,
+      managedPolicies,
+    })
+    const authenticationConfiguration = {
+      accessRoleArn: accessRole.roleArn,
+    }
+    const imageConfiguration = {
+      port: props.port,
+      startCommand: props.startCommand,
+      runtimeEnvironmentVariables: props.environment,
+    }
+    const imageRepository = {
+      imageIdentifier: props.imageId,
+      imageRepositoryType: props.repositoryType,
+      imageConfiguration,
+    }
+    const sourceConfiguration = {
+      imageRepository,
+      authenticationConfiguration,
+      autoDeploymentsEnabled: props.willAutoDeploy,
+    }
+    const service = new CfnService(this, 'Service', {
+      sourceConfiguration,
+    })
+    this.node.defaultChild = service
+    this.serviceArn = service.attrServiceArn
+    this.serviceId = service.attrServiceId
+    this.serviceUrl = service.attrServiceUrl
+    this.status = service.attrStatus
   }
 
 }
@@ -125,61 +235,37 @@ export class Cdn extends Construct {
 
 }
 
-// App Image Service: App Runner (Image)
-
-export enum RepositoryType {
-  ECR = 'ECR',
-  ECR_PUBLIC = 'ECR_PUBLIC',
+export interface KeyValue {
+  readonly [key: string]: string | number,
 }
 
-export interface KeyValuePair {
-  name?: string,
-  value?: string,
+export interface PythonResourceProps {
+  readonly entry: string;
+  readonly index?: string;
+  readonly handler?: string;
+  readonly runtime?: Runtime;
+  readonly properties?: KeyValue,
 }
 
-export interface ImageServiceRunnerProps {
-  repositoryType: RepositoryType,
-  imageId: string,
-  port?: string,
-  startCommand?: string,
-  environment?: KeyValuePair[],
-  willAutoDeploy?: boolean,
-}
+export class PythonResource extends Construct {
 
-export class ImageServiceRunner extends Construct {
+  public readonly handler: PythonFunction
 
-  public readonly service: AppService;
-
-  constructor(scope: Construct, id: string, imageServiceRunnerProps: ImageServiceRunnerProps) {
+  constructor(scope: Construct, id: string, props: PythonResourceProps) {
     super(scope, id)
-    const assumedBy = new ServicePrincipal('build.apprunner.amazonaws.com')
-    const managedPolicies = [
-      ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSAppRunnerServicePolicyForECRAccess'),
-    ]
-    const accessRole = new Role(this, 'AccessRole', {
-      assumedBy,
-      managedPolicies,
+    const onEventHandler = new PythonFunction(scope, 'Handler', {
+      entry: props.entry,
+      index: props.index,
+      handler: props.handler,
+      runtime: props.runtime,
     })
-    const authenticationConfiguration = {
-      accessRoleArn: accessRole.roleArn,
-    }
-    const imageConfiguration = {
-      port: imageServiceRunnerProps.port,
-      startCommand: imageServiceRunnerProps.startCommand,
-      runtimeEnvironmentVariables: imageServiceRunnerProps.environment,
-    }
-    const imageRepository = {
-      imageIdentifier: imageServiceRunnerProps.imageId,
-      imageRepositoryType: imageServiceRunnerProps.repositoryType,
-      imageConfiguration,
-    }
-    const sourceConfiguration = {
-      imageRepository,
-      authenticationConfiguration,
-      autoDeploymentsEnabled: imageServiceRunnerProps.willAutoDeploy,
-    }
-    this.service = new AppService(this, 'Service', {
-      sourceConfiguration,
+    this.handler = onEventHandler
+    const provider = new Provider(scope, 'Provider', {
+      onEventHandler,
+    })
+    new CustomResource(scope, 'Resource', {
+      serviceToken: provider.serviceToken,
+      properties: props.properties,
     })
   }
 
