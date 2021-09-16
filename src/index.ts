@@ -268,6 +268,7 @@ export interface PythonResourceProps {
 
 export class PythonResource extends Construct implements IGrantable {
 
+  public readonly resource: CustomResource
   readonly grantPrincipal: IPrincipal
 
   constructor(scope: Construct, id: string, props: PythonResourceProps) {
@@ -282,7 +283,7 @@ export class PythonResource extends Construct implements IGrantable {
     const provider = new Provider(this, 'Provider', {
       onEventHandler,
     })
-    new CustomResource(this, 'Resource', {
+    this.resource = new CustomResource(this, 'Resource', {
       serviceToken: provider.serviceToken,
       properties: props.properties,
     })
