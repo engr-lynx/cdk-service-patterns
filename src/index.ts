@@ -36,6 +36,15 @@ import {
 
 // ToDo: Break these up so that there's a logical grouping or Constructs and Resources.
 
+export interface KeyValue {
+  readonly [key: string]: string | number,
+}
+
+export interface KeyValuePair {
+  readonly name?: string,
+  readonly value?: string,
+}
+
 // CloudFront
 
 type WebDistributionProps = Omit<CloudFrontWebDistributionProps, 'defaultRootObject'>
@@ -94,16 +103,30 @@ const SERVICE_OPERATE_ACTIONS = [
   'apprunner:StartDeployment',
 ]
 
-interface BaseServiceRunnerProps {
+interface InstanceProps {
+  readonly cpu?: string,
+  readonly memory?: string,
+}
+
+interface BaseServiceRunnerProps extends InstanceProps {
   readonly willAutoDeploy?: boolean,
 }
 
 class BaseServiceRunner extends Resource {
 
+  protected readonly instanceConfiguration?: InstanceProps
   public serviceArn: string
   public serviceId: string
   public serviceUrl: string
   public status: string
+
+  constructor(scope: Construct, id: string, props?: BaseServiceRunnerProps) {
+    super(scope, id)
+    this.instanceConfiguration = {
+      cpu: props?.cpu,
+      memory: props?.memory,
+    }
+  }
 
   grant(grantee: IGrantable, ...actions: string[]) {
     const resourceArns = [
@@ -149,11 +172,6 @@ export enum RepositoryType {
   ECR_PUBLIC = 'ECR_PUBLIC',
 }
 
-export interface KeyValuePair {
-  readonly name?: string,
-  readonly value?: string,
-}
-
 export interface ImageServiceRunnerProps extends BaseServiceRunnerProps {
   readonly repositoryType: RepositoryType,
   readonly imageId: string,
@@ -166,7 +184,7 @@ export interface ImageServiceRunnerProps extends BaseServiceRunnerProps {
 export class ImageServiceRunner extends BaseServiceRunner {
 
   constructor(scope: Construct, id: string, props: ImageServiceRunnerProps) {
-    super(scope, id)
+    super(scope, id, props)
     const assumedBy = new ServicePrincipal('build.apprunner.amazonaws.com')
     const managedPolicies = [
       ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSAppRunnerServicePolicyForECRAccess'),
@@ -195,6 +213,7 @@ export class ImageServiceRunner extends BaseServiceRunner {
     }
     const service = new CfnService(this, 'Service', {
       sourceConfiguration,
+      instanceConfiguration: this.instanceConfiguration,
     })
     this.node.defaultChild = service
     this.serviceArn = service.attrServiceArn
@@ -237,10 +256,6 @@ export class Cdn extends Construct {
     })
   }
 
-}
-
-export interface KeyValue {
-  readonly [key: string]: string | number,
 }
 
 export interface PythonResourceProps {
