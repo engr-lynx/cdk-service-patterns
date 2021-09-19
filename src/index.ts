@@ -1,8 +1,12 @@
 import {
+  join,
+} from 'path'
+import {
   Resource,
   Construct,
   Arn,
   CustomResource,
+  RemovalPolicy,
 } from '@aws-cdk/core'
 import {
   CloudFrontWebDistribution,
@@ -12,7 +16,12 @@ import {
 } from '@aws-cdk/aws-cloudfront'
 import {
   Bucket,
+  BucketProps,
 } from '@aws-cdk/aws-s3'
+import {
+  Repository,
+  RepositoryProps,
+} from '@aws-cdk/aws-ecr'
 import {
   CfnService,
 } from '@aws-cdk/aws-apprunner'
@@ -34,6 +43,7 @@ import {
   Provider,
 } from '@aws-cdk/custom-resources'
 
+// !ToDo: Use projen (https://www.npmjs.com/package/projen)
 // ToDo: Break these up so that there's a logical grouping or Constructs and Resources.
 
 export interface KeyValue {
@@ -79,6 +89,50 @@ export class WebDistribution extends CloudFrontWebDistribution {
 
   grantInvalidate(grantee: IGrantable) {
     return this.grant(grantee, 'cloudfront:CreateInvalidation')
+  }
+
+}
+
+// S3
+
+export class StackRemovableBucket extends Bucket {
+
+  constructor(scope: Construct, id: string, props?: BucketProps) {
+    super(scope, id, props)
+    if (props?.removalPolicy == RemovalPolicy.DESTROY) {
+      const entry = join(__dirname, 'custom-resource', 'empty-bucket')
+      const properties = {
+        bucketName: this.bucketName,
+      }
+      const emptyResource = new PythonResource(this, 'EmptyResource', {
+        entry,
+        properties,
+      })
+      this.grantRead(emptyResource)
+      this.grantDelete(emptyResource)
+    }
+  }
+
+}
+
+// ECR
+
+export class StackRemovableRepository extends Repository {
+
+  constructor(scope: Construct, id: string, props?: RepositoryProps) {
+    super(scope, id, props)
+    if (props?.removalPolicy == RemovalPolicy.DESTROY) {
+      const entry = join(__dirname, 'custom-resource', 'empty-repo')
+      const properties = {
+        imageRepoName: this.repositoryName,
+      }
+      const emptyResource = new PythonResource(this, 'EmptyResource', {
+        entry,
+        properties,
+      })
+      // ToDo: Aggregate grant to delete.
+      this.grant(emptyResource, 'ecr:ListImages', 'ecr:BatchDeleteImage')
+    }
   }
 
 }
