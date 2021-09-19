@@ -258,6 +258,7 @@ export class Cdn extends Construct {
 
 }
 
+// !ToDo: May not be needed anymore if using cdk-triggers
 export interface PythonResourceProps {
   readonly entry: string;
   readonly index?: string;
