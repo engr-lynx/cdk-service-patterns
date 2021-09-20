@@ -32,6 +32,7 @@ import {
   ServicePrincipal,
   ManagedPolicy,
   IPrincipal,
+  User,
 } from '@aws-cdk/aws-iam'
 import {
   PythonFunction,
@@ -43,7 +44,8 @@ import {
   Provider,
 } from '@aws-cdk/custom-resources'
 
-// !ToDo: Use projen (https://www.npmjs.com/package/projen)
+// !ToDo: Use projen (https://www.npmjs.com/package/projen).
+// ToDo: Use CDK nag (https://www.npmjs.com/package/cdk-nag).
 // ToDo: Break these up so that there's a logical grouping or Constructs and Resources.
 
 export interface KeyValue {
@@ -133,6 +135,34 @@ export class StackRemovableRepository extends Repository {
       // ToDo: Aggregate grant to delete.
       this.grant(emptyResource, 'ecr:ListImages', 'ecr:BatchDeleteImage')
     }
+  }
+
+}
+
+// IAM User
+
+export class CustomUser extends User {
+
+  grant(grantee: IGrantable, ...actions: string[]) {
+    const arn = Arn.format({
+      service: 'iam',
+      resource: 'user',
+      region: '',
+      resourceName: this.userName,
+    }, this.stack)
+    const resourceArns = [
+      arn
+    ]
+    return Grant.addToPrincipal({
+      grantee,
+      actions,
+      resourceArns,
+      scope: this,
+    })
+  }
+
+  grantCreateServiceSpecificCredential(grantee: IGrantable) {
+    return this.grant(grantee, 'iam:CreateServiceSpecificCredential')
   }
 
 }
