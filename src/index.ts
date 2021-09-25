@@ -141,6 +141,18 @@ export class StackRemovableRepository extends Repository {
 
 // IAM User
 
+// ToDo: Add other relevant actions.
+const USER_UPDATE_CREDENTIALS_ACTIONS = [
+  'iam:CreateServiceSpecificCredential',
+  'iam:DeleteServiceSpecificCredential',
+]
+
+// ToDo: Add other relevant actions.
+const USER_UPDATE_PERMISSIONS_ACTIONS = [
+  'iam:AttachUserPolicy',
+  'iam:DetachUserPolicy',
+]
+
 export class CustomUser extends User {
 
   grant(grantee: IGrantable, ...actions: string[]) {
@@ -161,8 +173,16 @@ export class CustomUser extends User {
     })
   }
 
-  grantCreateServiceSpecificCredential(grantee: IGrantable) {
-    return this.grant(grantee, 'iam:CreateServiceSpecificCredential')
+  grantUpdateCredentials(grantee: IGrantable) {
+    return this.grant(grantee, 
+      ...USER_UPDATE_CREDENTIALS_ACTIONS,
+    )
+  }
+
+  grantUpdatePermissions(grantee: IGrantable) {
+    return this.grant(grantee, 
+      ...USER_UPDATE_PERMISSIONS_ACTIONS,
+    )
   }
 
 }
